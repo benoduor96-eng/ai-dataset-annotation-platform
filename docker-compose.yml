@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-annotation}
+      POSTGRES_USER: ${POSTGRES_USER:-annotation}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-annotation}
+    ports: ["5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  backend:
+    build: ./backend
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    env_file: .env
+    volumes: ["./backend:/app"]
+    ports: ["8000:8000"]
+    depends_on: [db, redis]
+
+  worker:
+    build: ./backend
+    command: celery -A config worker -l info
+    env_file: .env
+    volumes: ["./backend:/app"]
+    depends_on: [db, redis]
+
+  java-service:
+    build: ./java-service
+    ports: ["8080:8080"]
+
+  frontend:
+    image: node:22-alpine
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes: ["./frontend:/app"]
+    ports: ["5173:5173"]
+    depends_on: [backend]
+
+volumes:
+  postgres_data:
