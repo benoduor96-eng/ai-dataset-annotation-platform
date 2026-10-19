@@ -12,6 +12,16 @@ class HealthTest(APITestCase):
         self.assertEqual(response.data["status"], "ok")
 
 
+class AuthenticationBoundaryTest(APITestCase):
+    def test_project_api_requires_authentication(self):
+        response = self.client.get("/api/projects/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_metrics_api_requires_authentication(self):
+        response = self.client.get("/api/projects/1/metrics/")
+        self.assertEqual(response.status_code, 401)
+
+
 class ProjectTest(APITestCase):
     def setUp(self):
         user_model = get_user_model()
@@ -94,6 +104,7 @@ class ProjectTest(APITestCase):
         response = self.client.get(f"/api/projects/{project.pk}/metrics/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["task_count"], 0)
+        self.assertIsNone(response.data["annotation_agreement"]["exact_match_agreement"])
         other_project = Project.objects.create(owner=self.other_user, name="Private")
         hidden = self.client.get(f"/api/projects/{other_project.pk}/metrics/")
         self.assertEqual(hidden.status_code, 404)
