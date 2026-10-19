@@ -3,10 +3,11 @@ from django.db.models import Count, Q
 
 from apps.annotations.models import Annotation, AnnotationTask
 from apps.datasets.models import Dataset
+from .quality import project_agreement
 
 
 def project_summary(project):
-    """Build deterministic summary metrics for a project."""
+    """Build deterministic workflow, confidence, and annotation-quality metrics."""
     datasets = Dataset.objects.filter(project=project)
     tasks = AnnotationTask.objects.filter(dataset__project=project)
     task_counts = tasks.aggregate(
@@ -19,7 +20,10 @@ def project_summary(project):
     )
     annotation_stats = Annotation.objects.filter(
         task__dataset__project=project
-    ).aggregate(total=Count("id"), with_confidence=Count("id", filter=Q(confidence__isnull=False)))
+    ).aggregate(
+        total=Count("id"),
+        with_confidence=Count("id", filter=Q(confidence__isnull=False)),
+    )
     total = task_counts["total"] or 0
     reviewed = (task_counts["approved"] or 0) + (task_counts["rejected"] or 0)
     return {
@@ -31,4 +35,5 @@ def project_summary(project):
         "annotations_with_confidence": annotation_stats["with_confidence"] or 0,
         "reviewed_task_count": reviewed,
         "review_coverage": round(reviewed / total, 4) if total else 0.0,
+        "annotation_agreement": project_agreement(project),
     }
