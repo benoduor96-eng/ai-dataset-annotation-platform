@@ -98,7 +98,7 @@ class AnnotationViewSet(viewsets.ModelViewSet):
         serializer.save(annotator=self.request.user)
 
 
-class ReviewViewSet(viewsets.ModelViewSet):
+class ReviewViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ReviewSerializer
 
     def get_queryset(self):
