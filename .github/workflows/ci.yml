@@ -31,6 +31,7 @@ jobs:
       - run: pip install -r backend/requirements.txt
       - run: python -m compileall backend
       - run: cd backend && python manage.py check
+      - run: cd backend && python manage.py makemigrations --check --dry-run
       - run: cd backend && python -m pytest apps/api
   java:
     runs-on: ubuntu-latest
