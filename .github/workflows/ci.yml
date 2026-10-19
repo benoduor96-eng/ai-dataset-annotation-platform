@@ -40,7 +40,7 @@ jobs:
       - run: python -m compileall backend
       - run: cd backend && python manage.py check
       - run: cd backend && python manage.py makemigrations --check --dry-run
-      - run: cd backend && python -m pytest apps/api
+      - run: cd backend && python manage.py test apps.api
   java:
     runs-on: ubuntu-latest
     steps:
