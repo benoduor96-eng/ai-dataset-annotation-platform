@@ -1,85 +1,92 @@
 # AI Dataset Annotation Platform
 
-A full-stack platform for creating datasets, defining annotation schemas, assigning annotation tasks, reviewing labels, exporting datasets, and integrating AI-assisted pre-annotation.
+A full-stack platform for dataset projects, annotation schemas, task assignment,
+human labeling, quality review, workflow metrics and JSON export.
 
 ## Architecture
 
-- **Django + Django REST Framework** — core platform, auth, projects, datasets, annotation workflow and exports.
-- **PostgreSQL** — primary database.
-- **Redis/Celery** — asynchronous AI/export jobs.
-- **Java 21 + Spring Boot** — ingestion/processing service for high-throughput dataset imports and future model-serving integrations.
-- **React + Vite** — annotation workspace and dashboard.
-- **Docker Compose** — local development stack.
+- Django + Django REST Framework provide the authenticated API and workflow services.
+- PostgreSQL stores projects, datasets, tasks, annotations and review decisions.
+- Redis/Celery is the planned execution layer for long-running imports and AI jobs.
+- Java 21 + Spring Boot provides a separate ingestion service.
+- React + Vite provides the annotation workspace.
+- Docker Compose provides the local multi-service environment.
 
-## Core features
+## Implemented capabilities
 
-- JWT authentication
-- Organizations and projects
-- Dataset/file management
-- Configurable annotation schemas
-- Task assignment and status tracking
-- Text classification, entity and bounding-box-ready schema model
-- Human annotation + reviewer workflow
-- AI suggestion storage with confidence scores
-- Dataset export endpoint
-- Java ingestion API
-- Health checks and CI
+- JWT sign-in for the React workspace and API clients.
+- Project ownership scoping and validation of cross-project relationships.
+- Dataset and schema management with input validation.
+- Task claim, submit and review transitions enforced in transactional services.
+- Annotation confidence validation and duplicate-label detection.
+- Bounded bulk task import with validation before writes.
+- Project workflow metrics and JSON annotation export.
+- CI checks for Python compilation, Django configuration, backend tests, Java tests
+  and frontend production build.
 
 ## Quick start
 
-```bash
-git clone <your-repository-url>
-cd ai-dataset-annotation-platform
-cp .env.example .env
-docker compose up --build
-```
+1. Copy the sample environment file and replace the development secret with a unique
+   random value: cp .env.example .env.
+2. Start the services: docker compose up --build.
+3. Open the frontend at http://localhost:5173 and the Django API at
+   http://localhost:8000/api/.
 
-Frontend: http://localhost:5173
-Django API: http://localhost:8000/api/
-Django admin: http://localhost:8000/admin/
-Java ingestion service: http://localhost:8080/
+Create a Django user before signing in to the frontend:
+
+    docker compose exec backend python manage.py createsuperuser
+
+The API token endpoint is /api/auth/token/. Supply the username and password to
+receive a JWT access token. The frontend stores the access token in browser local
+storage for this development build; production should assess an HttpOnly cookie
+session or another hardened token-storage strategy.
 
 ## API highlights
 
-- `POST /api/auth/register/`
-- `POST /api/auth/token/`
-- `GET /api/projects/`
-- `POST /api/projects/`
-- `GET /api/datasets/`
-- `POST /api/datasets/`
-- `GET /api/tasks/`
-- `POST /api/annotations/`
-- `POST /api/tasks/{id}/submit/`
-- `POST /api/tasks/{id}/review/`
-- `GET /api/projects/{id}/export/`
-- `GET /api/health/`
+- POST /api/auth/token/ — obtain JWT tokens.
+- POST /api/auth/token/refresh/ — refresh an access token.
+- GET/POST /api/projects/ — list or create projects.
+- GET /api/projects/{id}/metrics/ — project task and review metrics.
+- GET/POST /api/datasets/ — list or create datasets.
+- POST /api/datasets/{id}/import/ — import up to 500 task rows.
+- GET/POST /api/schemas/ — manage annotation schemas.
+- GET/POST /api/tasks/ — list or create annotation tasks.
+- POST /api/tasks/{id}/claim/ — claim a task.
+- POST /api/tasks/{id}/submit/ — submit a task with at least one annotation.
+- POST /api/tasks/{id}/review/ — approve or reject a submitted task.
+- GET/POST /api/annotations/ — manage annotation data.
+- GET /api/projects/{id}/export/ — export a project as JSON.
+- GET /api/health/ — health endpoint.
 
-## Development
+See docs/ARCHITECTURE.md for service boundaries, endpoint behavior, security notes
+and known limitations. See docs/DEVELOPMENT_PLAN.md for the staged implementation
+roadmap.
 
-```bash
-cd backend
-python -m venv .venv
-# Windows: .venv\\Scripts\\activate
-# Linux/macOS: source .venv/bin/activate
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
-```
+## Backend development
 
-Java service:
+    cd backend
+    python -m venv .venv
+    # Windows: .venv\Scripts\activate
+    # Linux/macOS: source .venv/bin/activate
+    pip install -r requirements.txt
+    python manage.py migrate
+    python manage.py runserver
 
-```bash
-cd java-service
-./mvnw spring-boot:run
-```
+Set DJANGO_SECRET_KEY, database connection variables, and DJANGO_DEBUG=true for
+local development. Production deployments must set DJANGO_DEBUG=false, a unique
+secret and explicit DJANGO_ALLOWED_HOSTS.
 
-Frontend:
+## Frontend development
 
-```bash
-npm install
-npm run dev
-```
+    cd frontend
+    npm install
+    npm run dev
 
-## Security
+## Security and ownership
 
-Secrets are loaded from environment variables. Do not commit `.env`, credentials, API keys, model keys, or production secrets.
+Never commit .env, production credentials, access tokens, private dataset contents
+or client data. Review third-party licenses and preserve provenance for imported code.
+AI assistance was used while developing this repository; maintain an accurate account
+of AI-assisted changes and verify that all code is permitted for your intended use.
+The current branch improves foundational workflows but does not claim production
+readiness or guarantee acceptance by any external codebase review program.
