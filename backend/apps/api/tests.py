@@ -9,7 +9,7 @@ class HealthTest(APITestCase):
     def test_health(self):
         response = self.client.get("/api/health/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["status"], "ok")
+        self.assertEqual(response.json()["status"], "ok")
 
 
 class AuthenticationBoundaryTest(APITestCase):
@@ -68,7 +68,7 @@ class ProjectTest(APITestCase):
         self.assertEqual(claim.status_code, 200)
         annotation = self.client.post(
             "/api/annotations/",
-            {"task": task.pk, "data": {"label": "cat"}, "confidence": 0.97},
+            {"task": task.pk, "data": {"label": "cat"}, "confidence": 0.97}, format="json",
         )
         self.assertEqual(annotation.status_code, 201)
         submitted = self.client.post(f"/api/tasks/{task.pk}/submit/", {})
@@ -95,7 +95,7 @@ class ProjectTest(APITestCase):
     def test_invalid_confidence_is_rejected(self):
         task = self._make_task()
         response = self.client.post(
-            "/api/annotations/", {"task": task.pk, "data": {"label": "cat"}, "confidence": 3}
+            "/api/annotations/", {"task": task.pk, "data": {"label": "cat"}, "confidence": 3}, format="json"
         )
         self.assertEqual(response.status_code, 400)
 
