@@ -6,13 +6,14 @@ from django.http import HttpResponse, JsonResponse
 from rest_framework import decorators, response, status, viewsets
 from rest_framework.exceptions import ValidationError
 
-from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask, Review
+from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask, AuditEvent, Review
 from apps.datasets.models import Dataset, Project
 from .serializers import (
-    AnnotationSerializer, DatasetSerializer, ProjectSerializer, ReviewSerializer,
+    AnnotationSerializer, AuditEventSerializer, DatasetSerializer, ProjectSerializer, ReviewSerializer,
     SchemaSerializer, TaskSerializer,
 )
 from .services.analytics import project_summary
+from .services.audit import record_event
 from .services.imports import import_tasks
 from .services.quality_control import build_quality_report
 from .services.validators import PayloadValidationError
@@ -126,7 +127,47 @@ class AnnotationViewSet(viewsets.ModelViewSet):
         return Annotation.objects.filter(task__dataset__project__owner=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(annotator=self.request.user)
+        annotation = serializer.save(annotator=self.request.user)
+        record_event(
+            project=annotation.task.dataset.project,
+            actor=self.request.user,
+            event_type="annotation.created",
+            object_type="annotation",
+            object_id=annotation.pk,
+            metadata={"task_id": annotation.task_id},
+        )
+
+    def perform_update(self, serializer):
+        annotation = serializer.save()
+        record_event(
+            project=annotation.task.dataset.project,
+            actor=self.request.user,
+            event_type="annotation.updated",
+            object_type="annotation",
+            object_id=annotation.pk,
+            metadata={"task_id": annotation.task_id},
+        )
+
+
+class AuditEventViewSet(viewsets.ReadOnlyModelViewSet):
+    """Read-only, owner-scoped audit history with optional query filters."""
+
+    serializer_class = AuditEventSerializer
+
+    def get_queryset(self):
+        queryset = AuditEvent.objects.filter(
+            project__owner=self.request.user
+        ).select_related("project", "actor")
+        event_type = self.request.query_params.get("event_type")
+        object_type = self.request.query_params.get("object_type")
+        object_id = self.request.query_params.get("object_id")
+        if event_type:
+            queryset = queryset.filter(event_type=event_type)
+        if object_type:
+            queryset = queryset.filter(object_type=object_type)
+        if object_id:
+            queryset = queryset.filter(object_id=object_id)
+        return queryset
 
 
 class ReviewViewSet(viewsets.ReadOnlyModelViewSet):
