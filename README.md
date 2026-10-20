@@ -25,7 +25,8 @@ human labeling, quality review, workflow metrics and JSON export.
 - Exact-match inter-annotator agreement metrics for tasks labeled by distinct annotators.
 - Schema-aware quality checks for classification, named entities, bounding boxes and segmentation polygons.
 - Per-annotation quality issue codes and project-task quality summaries, without mutating annotations.
-- Structured project audit trail for task claim/submission/review, annotation create/update, and bulk imports.
+- Structured project audit trail for task claim/submission/review, annotation create/update, bulk imports, and version creation.
+- Immutable dataset snapshots containing schema/task/annotation state, deterministic SHA-256 content hashes, sequential version numbers, and owner-scoped history.
 - Owner-scoped, read-only audit-event API with event-type and object filters; event payloads avoid copying annotation content.
 - CI checks for Python compilation, Django configuration and migrations, backend tests,
   Java tests, frontend production build, and source-file inventory reporting.
@@ -54,6 +55,7 @@ session or another hardened token-storage strategy.
 - GET `/api/projects/{id}/metrics/` — project task, review, confidence, and agreement metrics.
 - GET/POST `/api/datasets/` — list or create datasets.
 - POST `/api/datasets/{id}/import/` — import up to 500 task rows.
+- GET/POST `/api/datasets/{id}/versions/` — list snapshots or create an immutable snapshot of the current dataset state.
 - GET/POST `/api/schemas/` — manage annotation schemas.
 - GET/POST `/api/tasks/` — list or create annotation tasks.
 - POST `/api/tasks/{id}/claim/` — claim a task.
@@ -92,6 +94,19 @@ results to projects owned by the authenticated user. Example filters include
 credentials, raw dataset content, or full annotation payloads. The table is append-only through
 the application API, but database administrators can still alter database records; production
 deployments needing tamper evidence should export events to separately controlled storage.
+
+### Dataset versioning
+
+Create a snapshot with `POST /api/datasets/{id}/versions/` and an optional
+`{"change_note": "reviewed labels for release candidate"}` body. Each snapshot contains
+the dataset's schemas, tasks, task payloads, current workflow states, and annotations.
+A canonical JSON representation is hashed with SHA-256; unchanged content has the same
+hash even when another numbered snapshot is created. The monotonically increasing version
+number identifies the snapshot sequence, while the hash identifies its content. Snapshots
+are read-only through this API and can be listed with `GET /api/datasets/{id}/versions/`.
+This initial version records snapshots but does not implement restoration or storage
+deduplication. Because manifests may contain dataset content, restrict access and follow
+the project's data-retention policy.
 
 ### Inter-annotator agreement
 
