@@ -2,7 +2,7 @@
 from rest_framework import serializers
 
 from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask, AuditEvent, Review
-from apps.datasets.models import Dataset, Project
+from apps.datasets.models import Dataset, DatasetVersion, Project
 from .services.validators import PayloadValidationError, validate_schema_labels, validate_task_payload
 
 
@@ -108,5 +108,20 @@ class AuditEventSerializer(serializers.ModelSerializer):
         fields = (
             "id", "project", "actor", "actor_username", "event_type",
             "object_type", "object_id", "metadata", "created_at",
+        )
+        read_only_fields = fields
+
+
+class DatasetVersionSerializer(serializers.ModelSerializer):
+    created_by_username = serializers.CharField(
+        source="created_by.username", read_only=True, default=None
+    )
+
+    class Meta:
+        model = DatasetVersion
+        fields = (
+            "id", "dataset", "version_number", "manifest", "content_hash",
+            "task_count", "annotation_count", "change_note", "created_by",
+            "created_by_username", "created_at",
         )
         read_only_fields = fields
