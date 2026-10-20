@@ -7,15 +7,16 @@ from rest_framework import decorators, response, status, viewsets
 from rest_framework.exceptions import ValidationError
 
 from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask, AuditEvent, Review
-from apps.datasets.models import Dataset, DatasetVersion, Project
+from apps.datasets.models import Dataset, DatasetVersion, Project, ProjectMembership, QualityRule
 from .serializers import (
-    AnnotationSerializer, AuditEventSerializer, DatasetSerializer, DatasetVersionSerializer, ProjectSerializer, ReviewSerializer,
+    AnnotationSerializer, AuditEventSerializer, DatasetSerializer, DatasetVersionSerializer, ProjectMembershipSerializer, ProjectSerializer, QualityRuleSerializer, ReviewSerializer,
     SchemaSerializer, TaskSerializer,
 )
 from .services.analytics import project_summary
 from .services.audit import record_event
 from .services.imports import import_tasks
 from .services.quality_control import build_quality_report
+from .services.configurable_quality import apply_quality_rules
 from .services.validators import PayloadValidationError
 from .services.workflow import WorkflowError, claim_task, review_task, submit_task
 from .services.versioning import create_dataset_version
@@ -40,12 +41,47 @@ class ProjectViewSet(viewsets.ModelViewSet):
     def metrics(self, request, pk=None):
         return response.Response(project_summary(self.get_object()))
 
+    @decorators.action(detail=True, methods=["get", "post"], url_path="members")
+    def members(self, request, pk=None):
+        project = self.get_object()
+        if request.method == "GET":
+            qs = ProjectMembership.objects.filter(project=project).select_related("user")
+            return response.Response(ProjectMembershipSerializer(qs, many=True).data)
+        from django.contrib.auth import get_user_model
+        user_id, role = request.data.get("user_id"), request.data.get("role", "annotator")
+        if role not in {"admin", "annotator", "reviewer"}:
+            return response.Response({"role": "Choose admin, annotator, or reviewer."}, status=400)
+        try:
+            user = get_user_model().objects.get(pk=user_id)
+        except (TypeError, ValueError, get_user_model().DoesNotExist):
+            return response.Response({"user_id": "User does not exist."}, status=400)
+        if user.pk == project.owner_id:
+            return response.Response({"user_id": "The owner does not need a membership record."}, status=400)
+        member, created = ProjectMembership.objects.update_or_create(project=project, user=user, defaults={"role": role})
+        return response.Response(ProjectMembershipSerializer(member).data, status=201 if created else 200)
+
+    @decorators.action(detail=True, methods=["delete"], url_path=r"members/(?P<user_id>[^/.]+)")
+    def remove_member(self, request, pk=None, user_id=None):
+        project = self.get_object()
+        deleted, _ = ProjectMembership.objects.filter(project=project, user_id=user_id).delete()
+        return response.Response(status=204) if deleted else response.Response({"detail": "Member not found."}, status=404)
+
 
 class DatasetViewSet(viewsets.ModelViewSet):
     serializer_class = DatasetSerializer
 
     def get_queryset(self):
         return Dataset.objects.filter(project__owner=self.request.user)
+
+    @decorators.action(detail=True, methods=["get", "post"], url_path="quality-rules")
+    def quality_rules(self, request, pk=None):
+        dataset = self.get_object()
+        if request.method == "GET":
+            return response.Response(QualityRuleSerializer(dataset.quality_rules.all(), many=True).data)
+        serializer = QualityRuleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rule = serializer.save(dataset=dataset, created_by=request.user)
+        return response.Response(QualityRuleSerializer(rule).data, status=status.HTTP_201_CREATED)
 
     @decorators.action(detail=True, methods=["get", "post"], url_path="versions")
     def versions(self, request, pk=None):
@@ -89,6 +125,19 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return AnnotationTask.objects.filter(dataset__project__owner=self.request.user)
+
+    @decorators.action(detail=False, methods=["get"], url_path="review-queue")
+    def review_queue(self, request):
+        queryset = self.get_queryset().filter(status="submitted").order_by("updated_at", "pk")
+        dataset_id = request.query_params.get("dataset_id")
+        if dataset_id:
+            try:
+                queryset = queryset.filter(dataset_id=int(dataset_id))
+            except (TypeError, ValueError):
+                return response.Response({"dataset_id": "Must be an integer."}, status=400)
+        page = self.paginate_queryset(queryset)
+        serializer = self.get_serializer(page if page is not None else queryset, many=True)
+        return self.get_paginated_response(serializer.data) if page is not None else response.Response(serializer.data)
 
     @decorators.action(detail=True, methods=["post"])
     def claim(self, request, pk=None):
@@ -147,7 +196,8 @@ class TaskViewSet(viewsets.ModelViewSet):
             schema=schema,
             task_payload=task.payload,
         )
-        return response.Response(report)
+        rules = task.dataset.quality_rules.filter(enabled=True).order_by("pk")
+        return response.Response(apply_quality_rules(report, annotations, rules))
 
 
 class AnnotationViewSet(viewsets.ModelViewSet):

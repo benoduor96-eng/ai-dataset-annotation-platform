@@ -163,3 +163,10 @@ AI assistance was used while developing this repository; maintain an accurate ac
 of AI-assisted changes and verify that all code is permitted for your intended use.
 This project is in active development and does not claim production readiness or guarantee
 acceptance by any external codebase review program.
+
+
+## Team workflows and configurable quality rules
+
+Project owners can manage workspace membership with `GET/POST /api/projects/{id}/members/` and remove a member with `DELETE /api/projects/{id}/members/{user_id}/`. Roles are `admin`, `annotator`, and `reviewer`. Membership metadata is available now; other data endpoints remain owner-scoped until role-aware authorization is applied consistently.
+
+Dataset owners can create/list rules at `GET/POST /api/datasets/{id}/quality-rules/`. Supported rule types are `min_confidence` (`parameters.minimum`, 0–1), `require_non_empty`, `allowed_labels` (`parameters.labels`), and `max_annotations` (`parameters.maximum`). Enabled rules are applied during `POST /api/tasks/{id}/quality-check/`. `GET /api/tasks/review-queue/` lists submitted tasks awaiting review and accepts an optional `dataset_id` filter.
