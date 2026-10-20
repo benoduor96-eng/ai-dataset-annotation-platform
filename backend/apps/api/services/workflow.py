@@ -4,6 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.annotations.models import Annotation, AnnotationTask, Review
+from .audit import record_event
 
 
 class WorkflowError(Exception):
@@ -25,6 +26,14 @@ def claim_task(*, task_id, user):
     task.assignee = user
     task.status = "in_progress"
     task.save(update_fields=("assignee", "status", "updated_at"))
+    record_event(
+        project=task.dataset.project,
+        actor=user,
+        event_type="task.claimed",
+        object_type="task",
+        object_id=task.pk,
+        metadata={"status": task.status},
+    )
     return task
 
 
@@ -45,6 +54,14 @@ def submit_task(*, task_id, user):
     task.status = "submitted"
     task.assignee = task.assignee or user
     task.save(update_fields=("status", "assignee", "updated_at"))
+    record_event(
+        project=task.dataset.project,
+        actor=user,
+        event_type="task.submitted",
+        object_type="task",
+        object_id=task.pk,
+        metadata={"annotation_count": task.annotations.count(), "status": task.status},
+    )
     return task
 
 
@@ -74,6 +91,14 @@ def review_task(*, task_id, reviewer, decision, comment=""):
         )
     task.status = decision
     task.save(update_fields=("status", "updated_at"))
+    record_event(
+        project=task.dataset.project,
+        actor=reviewer,
+        event_type="task.reviewed",
+        object_type="task",
+        object_id=task.pk,
+        metadata={"decision": decision, "annotation_count": len(annotations)},
+    )
     return task
 
 
