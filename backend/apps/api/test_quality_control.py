@@ -85,8 +85,19 @@ class TaskQualityCheckApiTest(APITestCase):
         self.assertEqual(response.data["invalid_count"], 1)
         self.assertEqual(response.data["validity_rate"], 0.5)
 
-    def test_quality_check_requires_schema_for_dataset(self):
+    def test_quality_check_uses_first_dataset_schema_when_id_is_omitted(self):
         response = self.client.post(f"/api/tasks/{self.task.pk}/quality-check/", {}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["schema_id"], self.schema.pk)
+        self.assertEqual(response.data["annotation_count"], 0)
+        self.assertIsNone(response.data["validity_rate"])
+
+    def test_quality_check_requires_a_schema_when_dataset_has_none(self):
+        empty_dataset = Dataset.objects.create(project=self.project, name="No schema")
+        empty_task = AnnotationTask.objects.create(
+            dataset=empty_dataset, external_id="no-schema-001", payload={"text": "sample"}
+        )
+        response = self.client.post(f"/api/tasks/{empty_task.pk}/quality-check/", {}, format="json")
         self.assertEqual(response.status_code, 400)
 
     def test_quality_check_rejects_non_integer_schema_id(self):
