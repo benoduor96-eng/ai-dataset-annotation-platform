@@ -1,7 +1,7 @@
 """Explicit API serializers with tenant-bound write validation."""
 from rest_framework import serializers
 
-from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask, Review
+from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask, AuditEvent, Review
 from apps.datasets.models import Dataset, Project
 from .services.validators import PayloadValidationError, validate_schema_labels, validate_task_payload
 
@@ -98,3 +98,15 @@ class ReviewSerializer(serializers.ModelSerializer):
         if request is None or annotation.task.dataset.project.owner_id != request.user.id:
             raise serializers.ValidationError("Choose an annotation in your workspace.")
         return annotation
+
+
+class AuditEventSerializer(serializers.ModelSerializer):
+    actor_username = serializers.CharField(source="actor.username", read_only=True, default=None)
+
+    class Meta:
+        model = AuditEvent
+        fields = (
+            "id", "project", "actor", "actor_username", "event_type",
+            "object_type", "object_id", "metadata", "created_at",
+        )
+        read_only_fields = fields
