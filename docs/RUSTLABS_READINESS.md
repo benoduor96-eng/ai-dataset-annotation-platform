@@ -11,14 +11,15 @@ acceptance by RustLabs; its reviewers make the final decision.
 - The `main` branch had 32 commits at the time of the initial check.
 - CI passed all four jobs (backend, frontend, Java, and source inventory) on the readiness branch
   at commit `37797b8519e8e7a311f09f986aa4d22535bd0099`.
-- The baseline inventory at the earlier measured commit reported **1,244 physical source lines and
-  1,074 nonblank source lines across 40 files** under the script's rules. This is a baseline, not
-  the current post-feature count. The source-inventory CI job re-runs the estimate on every change;
-  check the latest run for the current count. The estimator is not an official RustLabs count and
-  does not include all possible source suffixes.
+- The earlier baseline inventory reported 1,244 physical source lines and 1,074 nonblank lines
+  across 40 files. After the annotation quality-control expansion, the inventory at commit
+  `00dec05f68b5c5fa87301816ae97136625974be9` reported **1,541 physical source lines and 1,330
+  nonblank source lines across 42 files** under the script's rules. This is still an estimate, not
+  an official RustLabs count, and the estimator may not include every suffix RustLabs counts.
 - The readiness branch now adds schema-aware quality checks for classification, named entities,
   bounding boxes and segmentation, a task-level quality-check API endpoint, and tests for valid and
-  invalid payloads plus tenant isolation. Its CI run must pass before the feature is treated as verified.
+  invalid payloads plus tenant isolation. All four CI jobs passed on that commit; later changes must
+  be checked separately.
 - CI success proves only that configured checks passed; it does not prove production readiness,
   security certification, or acceptance by RustLabs.
 
