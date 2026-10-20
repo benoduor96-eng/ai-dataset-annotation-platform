@@ -7,9 +7,9 @@ from rest_framework import decorators, response, status, viewsets
 from rest_framework.exceptions import ValidationError
 
 from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask, AuditEvent, Review
-from apps.datasets.models import Dataset, Project
+from apps.datasets.models import Dataset, DatasetVersion, Project
 from .serializers import (
-    AnnotationSerializer, AuditEventSerializer, DatasetSerializer, ProjectSerializer, ReviewSerializer,
+    AnnotationSerializer, AuditEventSerializer, DatasetSerializer, DatasetVersionSerializer, ProjectSerializer, ReviewSerializer,
     SchemaSerializer, TaskSerializer,
 )
 from .services.analytics import project_summary
@@ -18,6 +18,7 @@ from .services.imports import import_tasks
 from .services.quality_control import build_quality_report
 from .services.validators import PayloadValidationError
 from .services.workflow import WorkflowError, claim_task, review_task, submit_task
+from .services.versioning import create_dataset_version
 
 
 def health(request):
@@ -45,6 +46,35 @@ class DatasetViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Dataset.objects.filter(project__owner=self.request.user)
+
+    @decorators.action(detail=True, methods=["get", "post"], url_path="versions")
+    def versions(self, request, pk=None):
+        """List immutable snapshots or create a new snapshot of the current state."""
+        dataset = self.get_object()
+        if request.method == "GET":
+            versions = DatasetVersion.objects.filter(dataset=dataset).select_related("created_by")
+            page = self.paginate_queryset(versions)
+            serializer = DatasetVersionSerializer(page if page is not None else versions, many=True)
+            return self.get_paginated_response(serializer.data) if page is not None else response.Response(serializer.data)
+
+        note = request.data.get("change_note", "")
+        if not isinstance(note, str):
+            return response.Response(
+                {"change_note": "Must be a string."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            version = create_dataset_version(
+                dataset_id=dataset.pk,
+                actor=request.user,
+                change_note=note,
+            )
+        except ValueError as exc:
+            return response.Response({"change_note": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return response.Response(
+            DatasetVersionSerializer(version).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class SchemaViewSet(viewsets.ModelViewSet):
