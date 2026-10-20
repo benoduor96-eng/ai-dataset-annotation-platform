@@ -14,6 +14,7 @@ from .serializers import (
 )
 from .services.analytics import project_summary
 from .services.imports import import_tasks
+from .services.quality_control import build_quality_report
 from .services.validators import PayloadValidationError
 from .services.workflow import WorkflowError, claim_task, review_task, submit_task
 
@@ -86,6 +87,26 @@ class TaskViewSet(viewsets.ModelViewSet):
         except WorkflowError as exc:
             return response.Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return response.Response(self.get_serializer(task).data)
+
+    @decorators.action(detail=True, methods=["post"], url_path="quality-check")
+    def quality_check(self, request, pk=None):
+        """Report schema validation for a task's annotations without mutating them."""
+        task = self.get_object()
+        schemas = AnnotationSchema.objects.filter(dataset=task.dataset).order_by("pk")
+        schema_id = request.data.get("schema_id")
+        schema = schemas.filter(pk=schema_id).first() if schema_id else schemas.first()
+        if schema is None:
+            return response.Response(
+                {"detail": "Provide a schema_id belonging to this task's dataset, or create a schema first."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        annotations = list(task.annotations.select_related("annotator").order_by("pk"))
+        report = build_quality_report(
+            annotations=annotations,
+            schema=schema,
+            task_payload=task.payload,
+        )
+        return response.Response(report)
 
 
 class AnnotationViewSet(viewsets.ModelViewSet):
