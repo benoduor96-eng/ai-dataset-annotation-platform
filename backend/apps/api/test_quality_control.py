@@ -89,6 +89,12 @@ class TaskQualityCheckApiTest(APITestCase):
         response = self.client.post(f"/api/tasks/{self.task.pk}/quality-check/", {}, format="json")
         self.assertEqual(response.status_code, 400)
 
+    def test_quality_check_rejects_non_integer_schema_id(self):
+        response = self.client.post(
+            f"/api/tasks/{self.task.pk}/quality-check/", {"schema_id": "not-an-id"}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+
     def test_quality_check_does_not_disclose_another_users_task(self):
         other_project = Project.objects.create(owner=self.other_user, name="Private")
         other_dataset = Dataset.objects.create(project=other_project, name="Private data")
