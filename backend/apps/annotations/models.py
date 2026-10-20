@@ -47,6 +47,7 @@ class AuditEvent(models.Model):
         ("annotation.created", "Annotation created"),
         ("annotation.updated", "Annotation updated"),
         ("dataset.tasks_imported", "Tasks imported"),
+        ("dataset.version_created", "Dataset version created"),
     ]
 
     project = models.ForeignKey(
