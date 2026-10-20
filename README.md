@@ -23,6 +23,8 @@ human labeling, quality review, workflow metrics and JSON export.
 - Bounded bulk task import with validation before writes.
 - Project workflow metrics and JSON annotation export.
 - Exact-match inter-annotator agreement metrics for tasks labeled by distinct annotators.
+- Schema-aware quality checks for classification, named entities, bounding boxes and segmentation polygons.
+- Per-annotation quality issue codes and project-task quality summaries, without mutating annotations.
 - CI checks for Python compilation, Django configuration and migrations, backend tests,
   Java tests, frontend production build, and source-file inventory reporting.
 
@@ -55,9 +57,26 @@ session or another hardened token-storage strategy.
 - POST `/api/tasks/{id}/claim/` — claim a task.
 - POST `/api/tasks/{id}/submit/` — submit a task with at least one annotation.
 - POST `/api/tasks/{id}/review/` — approve or reject a submitted task.
+- POST `/api/tasks/{id}/quality-check/` — validate saved annotations against a schema.
 - GET/POST `/api/annotations/` — manage annotation data.
 - GET `/api/projects/{id}/export/` — export a project as JSON.
 - GET `/api/health/` — health endpoint.
+
+### Annotation quality checks
+
+Send an optional `schema_id` in the JSON request body to choose a schema attached to
+the task's dataset. If omitted, the first schema by ID is used. The endpoint reports
+whether each annotation passes, issue codes and paths, counts of valid/invalid
+annotations, and the overall validity rate. It supports these canonical data shapes:
+
+- Classification: `{"label": "cat"}`
+- Named entities: `{"entities": [{"start": 0, "end": 3, "label": "PERSON"}]}`
+- Bounding boxes: `{"boxes": [{"x_min": 1, "y_min": 2, "x_max": 10, "y_max": 12, "label": "car"}]}`
+- Segmentation: `{"segments": [{"label": "road", "points": [[0, 0], [1, 0], [1, 1]]}]}`
+
+Coordinates may be pixels or normalized values; the validator checks structure and
+ordering without assuming image dimensions. These checks are a configurable quality
+signal, not a substitute for task-specific policy or human review.
 
 ### Inter-annotator agreement
 
