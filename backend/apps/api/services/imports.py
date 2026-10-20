@@ -7,7 +7,7 @@ from .validators import PayloadValidationError, validate_task_payload
 
 
 @transaction.atomic
-def import_tasks(*, dataset, rows, max_rows=500):
+def import_tasks(*, dataset, rows, actor=None, max_rows=500):
     """Create tasks from rows shaped as {external_id, payload}.
 
     Duplicate IDs inside the batch and IDs already in the dataset are rejected
@@ -48,7 +48,7 @@ def import_tasks(*, dataset, rows, max_rows=500):
     dataset.save(update_fields=("item_count",))
     record_event(
         project=dataset.project,
-        actor=None,
+        actor=actor,
         event_type="dataset.tasks_imported",
         object_type="dataset",
         object_id=dataset.pk,
