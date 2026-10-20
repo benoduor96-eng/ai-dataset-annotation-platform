@@ -12,10 +12,11 @@ acceptance by RustLabs; its reviewers make the final decision.
 - CI passed all four jobs (backend, frontend, Java, and source inventory) on the readiness branch
   at commit `37797b8519e8e7a311f09f986aa4d22535bd0099`.
 - The earlier baseline inventory reported 1,244 physical source lines and 1,074 nonblank lines
-  across 40 files. After the annotation quality-control expansion, the inventory at commit
-  `00dec05f68b5c5fa87301816ae97136625974be9` reported **1,541 physical source lines and 1,330
-  nonblank source lines across 42 files** under the script's rules. This is still an estimate, not
-  an official RustLabs count, and the estimator may not include every suffix RustLabs counts.
+  across 40 files. After the quality-control, audit-trail, and dataset-versioning expansions, the
+  inventory at commit `91dd7bf55b31727d6ff759aa4b76762a5d66c452` reported **2,062 physical source
+  lines and 1,795 nonblank source lines across 46 files** under the script's rules. This is still
+  an estimate, not an official RustLabs count, and the estimator may not include every suffix
+  RustLabs counts. The 30,000-line target remains unmet.
 - The readiness branch also adds schema-aware quality checks for classification, named entities,
   bounding boxes and segmentation, plus a task-level quality-check endpoint and tests.
 - A further feature adds project audit events for task claim/submission/review, annotation
