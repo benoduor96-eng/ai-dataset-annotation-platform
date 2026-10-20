@@ -1,6 +1,14 @@
 name: CI
 on: [push, pull_request]
 jobs:
+  source-inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.13'}
+      - name: Report first-party source inventory
+        run: python scripts/count_source_lines.py
   backend:
     runs-on: ubuntu-latest
     services:
@@ -32,7 +40,7 @@ jobs:
       - run: python -m compileall backend
       - run: cd backend && python manage.py check
       - run: cd backend && python manage.py makemigrations --check --dry-run
-      - run: cd backend && python -m pytest apps/api
+      - run: cd backend && python manage.py test apps.api
   java:
     runs-on: ubuntu-latest
     steps:

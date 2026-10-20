@@ -9,7 +9,17 @@ class HealthTest(APITestCase):
     def test_health(self):
         response = self.client.get("/api/health/")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["status"], "ok")
+        self.assertEqual(response.json()["status"], "ok")
+
+
+class AuthenticationBoundaryTest(APITestCase):
+    def test_project_api_requires_authentication(self):
+        response = self.client.get("/api/projects/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_metrics_api_requires_authentication(self):
+        response = self.client.get("/api/projects/1/metrics/")
+        self.assertEqual(response.status_code, 401)
 
 
 class ProjectTest(APITestCase):
@@ -58,7 +68,7 @@ class ProjectTest(APITestCase):
         self.assertEqual(claim.status_code, 200)
         annotation = self.client.post(
             "/api/annotations/",
-            {"task": task.pk, "data": {"label": "cat"}, "confidence": 0.97},
+            {"task": task.pk, "data": {"label": "cat"}, "confidence": 0.97}, format="json",
         )
         self.assertEqual(annotation.status_code, 201)
         submitted = self.client.post(f"/api/tasks/{task.pk}/submit/", {})
@@ -85,7 +95,7 @@ class ProjectTest(APITestCase):
     def test_invalid_confidence_is_rejected(self):
         task = self._make_task()
         response = self.client.post(
-            "/api/annotations/", {"task": task.pk, "data": {"label": "cat"}, "confidence": 3}
+            "/api/annotations/", {"task": task.pk, "data": {"label": "cat"}, "confidence": 3}, format="json"
         )
         self.assertEqual(response.status_code, 400)
 
@@ -94,6 +104,7 @@ class ProjectTest(APITestCase):
         response = self.client.get(f"/api/projects/{project.pk}/metrics/")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["task_count"], 0)
+        self.assertIsNone(response.data["annotation_agreement"]["exact_match_agreement"])
         other_project = Project.objects.create(owner=self.other_user, name="Private")
         hidden = self.client.get(f"/api/projects/{other_project.pk}/metrics/")
         self.assertEqual(hidden.status_code, 404)

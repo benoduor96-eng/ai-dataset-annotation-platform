@@ -1,8 +1,8 @@
 """Explicit API serializers with tenant-bound write validation."""
 from rest_framework import serializers
 
-from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask, Review
-from apps.datasets.models import Dataset, Project
+from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask, AuditEvent, Review
+from apps.datasets.models import Dataset, DatasetVersion, Project, ProjectMembership, QualityRule
 from .services.validators import PayloadValidationError, validate_schema_labels, validate_task_payload
 
 
@@ -98,3 +98,73 @@ class ReviewSerializer(serializers.ModelSerializer):
         if request is None or annotation.task.dataset.project.owner_id != request.user.id:
             raise serializers.ValidationError("Choose an annotation in your workspace.")
         return annotation
+
+
+class AuditEventSerializer(serializers.ModelSerializer):
+    actor_username = serializers.CharField(source="actor.username", read_only=True, default=None)
+
+    class Meta:
+        model = AuditEvent
+        fields = (
+            "id", "project", "actor", "actor_username", "event_type",
+            "object_type", "object_id", "metadata", "created_at",
+        )
+        read_only_fields = fields
+
+
+class DatasetVersionSerializer(serializers.ModelSerializer):
+    created_by_username = serializers.CharField(
+        source="created_by.username", read_only=True, default=None
+    )
+
+    class Meta:
+        model = DatasetVersion
+        fields = (
+            "id", "dataset", "version_number", "manifest", "content_hash",
+            "task_count", "annotation_count", "change_note", "created_by",
+            "created_by_username", "created_at",
+        )
+        read_only_fields = fields
+
+
+class ProjectMembershipSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(source="user.username", read_only=True)
+    class Meta:
+        model = ProjectMembership
+        fields = ("id", "project", "user", "username", "role", "created_at")
+        read_only_fields = ("id", "project", "username", "created_at")
+
+
+class QualityRuleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QualityRule
+        fields = ("id", "dataset", "name", "rule_type", "parameters", "enabled", "created_by", "created_at", "updated_at")
+        read_only_fields = ("id", "dataset", "created_by", "created_at", "updated_at")
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError("Name must not be blank.")
+        return value
+
+    def validate_parameters(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError("Parameters must be a JSON object.")
+        return value
+
+    def validate(self, attrs):
+        rule_type = attrs.get("rule_type", getattr(self.instance, "rule_type", None))
+        params = attrs.get("parameters", getattr(self.instance, "parameters", {})) or {}
+        if rule_type == "min_confidence":
+            threshold = params.get("minimum", 0.0)
+            if isinstance(threshold, bool) or not isinstance(threshold, (int, float)) or not 0 <= threshold <= 1:
+                raise serializers.ValidationError({"parameters": {"minimum": "Must be a number between 0 and 1."}})
+        elif rule_type == "allowed_labels":
+            labels = params.get("labels")
+            if not isinstance(labels, list) or not labels or not all(isinstance(x, str) and x.strip() for x in labels):
+                raise serializers.ValidationError({"parameters": {"labels": "Provide a non-empty list of label strings."}})
+        elif rule_type == "max_annotations":
+            maximum = params.get("maximum", 1)
+            if isinstance(maximum, bool) or not isinstance(maximum, int) or maximum < 1:
+                raise serializers.ValidationError({"parameters": {"maximum": "Must be a positive integer."}})
+        return attrs

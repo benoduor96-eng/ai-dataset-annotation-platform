@@ -2,11 +2,12 @@
 from django.db import transaction
 
 from apps.annotations.models import AnnotationTask
+from .audit import record_event
 from .validators import PayloadValidationError, validate_task_payload
 
 
 @transaction.atomic
-def import_tasks(*, dataset, rows, max_rows=500):
+def import_tasks(*, dataset, rows, actor=None, max_rows=500):
     """Create tasks from rows shaped as {external_id, payload}.
 
     Duplicate IDs inside the batch and IDs already in the dataset are rejected
@@ -45,4 +46,12 @@ def import_tasks(*, dataset, rows, max_rows=500):
     ])
     dataset.item_count = AnnotationTask.objects.filter(dataset=dataset).count()
     dataset.save(update_fields=("item_count",))
+    record_event(
+        project=dataset.project,
+        actor=actor,
+        event_type="dataset.tasks_imported",
+        object_type="dataset",
+        object_id=dataset.pk,
+        metadata={"created_count": len(created), "external_ids": [task.external_id for task in created]},
+    )
     return created
