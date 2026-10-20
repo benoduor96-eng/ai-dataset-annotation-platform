@@ -2,7 +2,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
-    AnnotationViewSet, DatasetViewSet, ProjectViewSet, ReviewViewSet, SchemaViewSet,
+    AnnotationViewSet, AuditEventViewSet, DatasetViewSet, ProjectViewSet, ReviewViewSet, SchemaViewSet,
     TaskViewSet, dataset_import, project_export,
 )
 
@@ -12,6 +12,7 @@ router.register("datasets", DatasetViewSet, basename="datasets")
 router.register("schemas", SchemaViewSet, basename="schemas")
 router.register("tasks", TaskViewSet, basename="tasks")
 router.register("annotations", AnnotationViewSet, basename="annotations")
+router.register("audit-events", AuditEventViewSet, basename="audit-events")
 router.register("reviews", ReviewViewSet, basename="reviews")
 
 urlpatterns = [
