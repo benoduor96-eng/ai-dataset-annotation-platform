@@ -2,6 +2,7 @@
 from django.db import transaction
 
 from apps.annotations.models import AnnotationTask
+from .audit import record_event
 from .validators import PayloadValidationError, validate_task_payload
 
 
@@ -45,4 +46,12 @@ def import_tasks(*, dataset, rows, max_rows=500):
     ])
     dataset.item_count = AnnotationTask.objects.filter(dataset=dataset).count()
     dataset.save(update_fields=("item_count",))
+    record_event(
+        project=dataset.project,
+        actor=None,
+        event_type="dataset.tasks_imported",
+        object_type="dataset",
+        object_id=dataset.pk,
+        metadata={"created_count": len(created), "external_ids": [task.external_id for task in created]},
+    )
     return created
