@@ -10,29 +10,29 @@ acceptance by RustLabs; its reviewers make the final decision.
 - Repository is public and is not marked as a fork (checked 2026-10-20).
 - The `main` branch had 32 commits at the time of the initial check.
 - CI passed all four jobs (backend, frontend, Java, and source inventory) on the readiness branch
-  at commit `37797b8519e8e7a311f09f986aa4d22535bd0099`.
-- The earlier baseline inventory reported 1,244 physical source lines and 1,074 nonblank lines
-  across 40 files. After the quality-control, audit-trail, and dataset-versioning expansions, the
-  inventory at commit `3cba8f5efeda365848f2bcf87e0c9f3f36c12665` reported **2,191 physical source
-  lines and 1,907 nonblank source lines across 47 files** under the script's rules. This is still
-  an estimate, not an official RustLabs count, and the estimator may not include every suffix
-  RustLabs counts. The 30,000-line target remains unmet.
+  at commit `0d39d915516bb67d4bb46648b64f63d6a581a6e4` (run `39355498470`).
+- The latest successful source inventory at commit `0d39d915516bb67d4bb46648b64f63d6a581a6e4` reported **2,663 physical source lines and 2,335 nonblank source lines across 52 files** under the script's rules. This remains an estimate, not an official RustLabs count; the estimator and RustLabs may include different files. The 30,000-line target remains unmet.
 - The readiness branch also adds schema-aware quality checks for classification, named entities,
   bounding boxes and segmentation, plus a task-level quality-check endpoint and tests.
 - A further feature adds project audit events for task claim/submission/review, annotation
   create/update, bulk imports, and dataset version creation; an owner-scoped read-only endpoint;
   and regression tests for tenant isolation, filtering, and read-only behavior.
 - Dataset versioning now creates immutable JSON snapshots with canonical SHA-256 hashes, ordered
-  version numbers, annotation counts, change notes, and owner-scoped history. Regression tests
-  cover hash stability, changed content, access control, and event creation. The source inventory
-  and test status must be read from the latest successful CI run.
+  version numbers, annotation counts, change notes, and owner-scoped history. Explicit restoration
+  replaces the schema/task/annotation state from a selected snapshot in a transaction and records
+  an audit event; the endpoint requires `confirm=true` because newer tasks may be removed.
+- Added project membership records with owner-managed roles, a submitted-task review queue, configurable
+  quality gates (confidence, non-empty data, allowed labels, annotation count), a project report,
+  and an HMAC-SHA256 signed task-import webhook. Membership role metadata is present, but role-aware
+  access enforcement is not yet consistently applied across every data endpoint; do not treat this
+  as complete team authorization.
 - CI success proves only that configured checks passed; it does not prove production readiness,
   security certification, or acceptance by RustLabs.
 
 ## Requirements still requiring evidence or owner action
 
-- **Qualifying original source lines:** The observed 1,244 physical lines are far below a 30,000-line
-  target. Under this estimate, the gap is approximately 28,756 lines, before accounting for any
+- **Qualifying original source lines:** The observed 2,663 physical lines are far below a 30,000-line
+  target. Under this estimate, the gap is approximately 27,337 lines, before accounting for any
   differences in RustLabs' inclusion rules. The platform needs substantial real features, tests,
   and maintainable implementation—not boilerplate, generated code, copied code, or empty commits.
 - **Ownership and provenance:** The owner must confirm that each submitted source file is their
