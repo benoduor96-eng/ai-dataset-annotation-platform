@@ -35,3 +35,44 @@ class Review(models.Model):
     decision=models.CharField(max_length=20,choices=[('approved','Approved'),('rejected','Rejected')])
     comment=models.TextField(blank=True)
     created_at=models.DateTimeField(auto_now_add=True)
+
+
+class AuditEvent(models.Model):
+    """Append-only application event used to explain important project changes."""
+
+    EVENT_TYPES = [
+        ("task.claimed", "Task claimed"),
+        ("task.submitted", "Task submitted"),
+        ("task.reviewed", "Task reviewed"),
+        ("annotation.created", "Annotation created"),
+        ("annotation.updated", "Annotation updated"),
+        ("dataset.tasks_imported", "Tasks imported"),
+    ]
+
+    project = models.ForeignKey(
+        "datasets.Project",
+        on_delete=models.CASCADE,
+        related_name="audit_events",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="annotation_audit_events",
+    )
+    event_type = models.CharField(max_length=64, choices=EVENT_TYPES)
+    object_type = models.CharField(max_length=64)
+    object_id = models.CharField(max_length=128)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-pk")
+        indexes = [
+            models.Index(fields=("project", "-created_at"), name="audit_proj_created_idx"),
+            models.Index(fields=("event_type", "-created_at"), name="audit_type_created_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.event_type}:{self.object_type}:{self.object_id}"
