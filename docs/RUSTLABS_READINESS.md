@@ -13,8 +13,8 @@ acceptance by RustLabs; its reviewers make the final decision.
   at commit `37797b8519e8e7a311f09f986aa4d22535bd0099`.
 - The earlier baseline inventory reported 1,244 physical source lines and 1,074 nonblank lines
   across 40 files. After the quality-control, audit-trail, and dataset-versioning expansions, the
-  inventory at commit `91dd7bf55b31727d6ff759aa4b76762a5d66c452` reported **2,062 physical source
-  lines and 1,795 nonblank source lines across 46 files** under the script's rules. This is still
+  inventory at commit `3cba8f5efeda365848f2bcf87e0c9f3f36c12665` reported **2,191 physical source
+  lines and 1,907 nonblank source lines across 47 files** under the script's rules. This is still
   an estimate, not an official RustLabs count, and the estimator may not include every suffix
   RustLabs counts. The 30,000-line target remains unmet.
 - The readiness branch also adds schema-aware quality checks for classification, named entities,
