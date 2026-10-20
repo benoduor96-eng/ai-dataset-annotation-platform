@@ -19,9 +19,12 @@ acceptance by RustLabs; its reviewers make the final decision.
 - The readiness branch also adds schema-aware quality checks for classification, named entities,
   bounding boxes and segmentation, plus a task-level quality-check endpoint and tests.
 - A further feature adds project audit events for task claim/submission/review, annotation
-  create/update, and bulk imports; an owner-scoped read-only endpoint; and regression tests for
-  tenant isolation, filtering, and read-only behavior. This feature must pass the latest CI before
-  it is treated as verified. The source inventory should be read from the latest successful run.
+  create/update, bulk imports, and dataset version creation; an owner-scoped read-only endpoint;
+  and regression tests for tenant isolation, filtering, and read-only behavior.
+- Dataset versioning now creates immutable JSON snapshots with canonical SHA-256 hashes, ordered
+  version numbers, annotation counts, change notes, and owner-scoped history. Regression tests
+  cover hash stability, changed content, access control, and event creation. The source inventory
+  and test status must be read from the latest successful CI run.
 - CI success proves only that configured checks passed; it does not prove production readiness,
   security certification, or acceptance by RustLabs.
 
