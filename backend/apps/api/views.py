@@ -94,7 +94,17 @@ class TaskViewSet(viewsets.ModelViewSet):
         task = self.get_object()
         schemas = AnnotationSchema.objects.filter(dataset=task.dataset).order_by("pk")
         schema_id = request.data.get("schema_id")
-        schema = schemas.filter(pk=schema_id).first() if schema_id else schemas.first()
+        if schema_id not in (None, ""):
+            try:
+                schema_id = int(schema_id)
+            except (TypeError, ValueError):
+                return response.Response(
+                    {"detail": "schema_id must be an integer."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            schema = schemas.filter(pk=schema_id).first()
+        else:
+            schema = schemas.first()
         if schema is None:
             return response.Response(
                 {"detail": "Provide a schema_id belonging to this task's dataset, or create a schema first."},
