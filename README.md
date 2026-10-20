@@ -25,6 +25,8 @@ human labeling, quality review, workflow metrics and JSON export.
 - Exact-match inter-annotator agreement metrics for tasks labeled by distinct annotators.
 - Schema-aware quality checks for classification, named entities, bounding boxes and segmentation polygons.
 - Per-annotation quality issue codes and project-task quality summaries, without mutating annotations.
+- Structured project audit trail for task claim/submission/review, annotation create/update, and bulk imports.
+- Owner-scoped, read-only audit-event API with event-type and object filters; event payloads avoid copying annotation content.
 - CI checks for Python compilation, Django configuration and migrations, backend tests,
   Java tests, frontend production build, and source-file inventory reporting.
 
@@ -60,6 +62,7 @@ session or another hardened token-storage strategy.
 - POST `/api/tasks/{id}/quality-check/` — validate saved annotations against a schema.
 - GET/POST `/api/annotations/` — manage annotation data.
 - GET `/api/projects/{id}/export/` — export a project as JSON.
+- GET `/api/audit-events/` — list audit events for owned projects; supports `event_type`, `object_type`, and `object_id` query filters.
 - GET `/api/health/` — health endpoint.
 
 ### Annotation quality checks
@@ -77,6 +80,18 @@ annotations, and the overall validity rate. It supports these canonical data sha
 Coordinates may be pixels or normalized values; the validator checks structure and
 ordering without assuming image dimensions. These checks are a configurable quality
 signal, not a substitute for task-specific policy or human review.
+
+### Audit trail
+
+The audit trail stores structured events alongside workflow transactions, so a rolled-back
+task change does not leave a success event. Events include the project, actor where available,
+event type, object type/ID, timestamp, and minimal metadata. The API is read-only and limits
+results to projects owned by the authenticated user. Example filters include
+`/api/audit-events/?event_type=task.reviewed` and
+`/api/audit-events/?object_type=task&object_id=12`. Audit metadata should not contain
+credentials, raw dataset content, or full annotation payloads. The table is append-only through
+the application API, but database administrators can still alter database records; production
+deployments needing tamper evidence should export events to separately controlled storage.
 
 ### Inter-annotator agreement
 
