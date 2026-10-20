@@ -19,7 +19,7 @@ from .services.quality_control import build_quality_report
 from .services.configurable_quality import apply_quality_rules
 from .services.validators import PayloadValidationError
 from .services.workflow import WorkflowError, claim_task, review_task, submit_task
-from .services.versioning import create_dataset_version
+from .services.versioning import create_dataset_version, restore_dataset_version
 
 
 def health(request):
@@ -82,6 +82,17 @@ class DatasetViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         rule = serializer.save(dataset=dataset, created_by=request.user)
         return response.Response(QualityRuleSerializer(rule).data, status=status.HTTP_201_CREATED)
+
+    @decorators.action(detail=True, methods=["post"], url_path=r"versions/(?P<version_number>[^/.]+)/restore")
+    def restore_version(self, request, pk=None, version_number=None):
+        dataset = self.get_object()
+        if request.data.get("confirm") is not True:
+            return response.Response({"confirm": "Set confirm=true to replace the dataset with this snapshot."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            result = restore_dataset_version(dataset_id=dataset.pk, version_number=version_number, actor=request.user)
+        except DatasetVersion.DoesNotExist:
+            return response.Response({"detail": "Version not found."}, status=status.HTTP_404_NOT_FOUND)
+        return response.Response(result)
 
     @decorators.action(detail=True, methods=["get", "post"], url_path="versions")
     def versions(self, request, pk=None):

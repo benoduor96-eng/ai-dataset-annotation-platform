@@ -10,7 +10,7 @@ import json
 from django.db import transaction
 from django.db.models import Max
 
-from apps.annotations.models import AnnotationTask
+from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask
 from apps.datasets.models import Dataset, DatasetVersion
 from .audit import record_event
 
@@ -105,3 +105,81 @@ def create_dataset_version(*, dataset_id, actor, change_note=""):
         },
     )
     return version
+
+
+@transaction.atomic
+def restore_dataset_version(*, dataset_id, version_number, actor):
+    """Restore schemas, tasks and annotations from a saved snapshot atomically."""
+    from django.contrib.auth import get_user_model
+
+    dataset = Dataset.objects.select_for_update().select_related("project").get(pk=dataset_id)
+    if actor is not None and dataset.project.owner_id != actor.id:
+        raise PermissionError("Dataset is outside your project workspace.")
+    version = DatasetVersion.objects.get(dataset=dataset, version_number=version_number)
+    manifest = version.manifest
+    if manifest.get("format_version") != 1 or not isinstance(manifest.get("tasks"), list) or not isinstance(manifest.get("schemas"), list):
+        raise ValueError("Unsupported or invalid snapshot manifest.")
+    User = get_user_model()
+    valid_user_ids = set(User.objects.filter(pk__in=[
+        value for task in manifest["tasks"]
+        for value in [task.get("assignee_id")] + [
+            annotation.get("annotator_id") for annotation in task.get("annotations", [])
+        ]
+        if value is not None
+    ]).values_list("pk", flat=True))
+
+    dataset.name = manifest.get("dataset", {}).get("name", dataset.name)
+    dataset.description = manifest.get("dataset", {}).get("description", dataset.description)
+    dataset.save(update_fields=["name", "description"])
+
+    AnnotationSchema.objects.filter(dataset=dataset).delete()
+    for schema in manifest["schemas"]:
+        AnnotationSchema.objects.create(
+            dataset=dataset,
+            name=schema["name"],
+            label_type=schema["label_type"],
+            labels=schema.get("labels", []),
+            version=schema.get("version", 1),
+        )
+
+    task_rows = manifest["tasks"]
+    external_ids = [row["external_id"] for row in task_rows]
+    AnnotationTask.objects.filter(dataset=dataset).exclude(external_id__in=external_ids).delete()
+    restored_annotations = 0
+    for row in task_rows:
+        assignee_id = row.get("assignee_id")
+        if assignee_id not in valid_user_ids:
+            assignee_id = None
+        task, _ = AnnotationTask.objects.update_or_create(
+            external_id=row["external_id"],
+            defaults={
+                "dataset": dataset,
+                "payload": row.get("payload", {}),
+                "status": row.get("status", "pending"),
+                "assignee_id": assignee_id,
+                "ai_suggestions": row.get("ai_suggestions", []),
+            },
+        )
+        task.annotations.all().delete()
+        for item in row.get("annotations", []):
+            annotator_id = item.get("annotator_id")
+            if annotator_id not in valid_user_ids:
+                continue
+            Annotation.objects.create(
+                task=task,
+                annotator_id=annotator_id,
+                data=item.get("data", {}),
+                confidence=item.get("confidence"),
+            )
+            restored_annotations += 1
+    record_event(
+        project=dataset.project,
+        actor=actor,
+        event_type="dataset.version_restored",
+        object_type="dataset_version",
+        object_id=version.pk,
+        metadata={"dataset_id": dataset.pk, "version_number": version.version_number,
+                  "task_count": len(task_rows), "annotation_count": restored_annotations},
+    )
+    return {"dataset_id": dataset.pk, "version_number": version.version_number,
+            "restored_task_count": len(task_rows), "restored_annotation_count": restored_annotations}

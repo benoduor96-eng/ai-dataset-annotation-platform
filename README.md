@@ -170,3 +170,8 @@ acceptance by any external codebase review program.
 Project owners can manage workspace membership with `GET/POST /api/projects/{id}/members/` and remove a member with `DELETE /api/projects/{id}/members/{user_id}/`. Roles are `admin`, `annotator`, and `reviewer`. Membership metadata is available now; other data endpoints remain owner-scoped until role-aware authorization is applied consistently.
 
 Dataset owners can create/list rules at `GET/POST /api/datasets/{id}/quality-rules/`. Supported rule types are `min_confidence` (`parameters.minimum`, 0–1), `require_non_empty`, `allowed_labels` (`parameters.labels`), and `max_annotations` (`parameters.maximum`). Enabled rules are applied during `POST /api/tasks/{id}/quality-check/`. `GET /api/tasks/review-queue/` lists submitted tasks awaiting review and accepts an optional `dataset_id` filter.
+
+
+## Dataset restoration
+
+Dataset owners can restore a saved snapshot with `POST /api/datasets/{dataset_id}/versions/{version_number}/restore/` and JSON body `{"confirm": true}`. This operation replaces the dataset's schemas, task set, and annotations with the snapshot state in one database transaction and writes a `dataset.version_restored` audit event. The explicit confirmation is required because tasks created after the snapshot can be deleted. If an annotator or assignee account has been deleted, its historical assignment is skipped during restoration.
