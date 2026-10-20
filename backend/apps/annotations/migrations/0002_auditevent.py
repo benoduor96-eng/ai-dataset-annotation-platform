@@ -23,6 +23,7 @@ class Migration(migrations.Migration):
                     ("annotation.created", "Annotation created"),
                     ("annotation.updated", "Annotation updated"),
                     ("dataset.tasks_imported", "Tasks imported"),
+                    ("dataset.version_created", "Dataset version created"),
                 ], max_length=64)),
                 ("object_type", models.CharField(max_length=64)),
                 ("object_id", models.CharField(max_length=128)),
