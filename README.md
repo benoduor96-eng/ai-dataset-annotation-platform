@@ -175,3 +175,10 @@ Dataset owners can create/list rules at `GET/POST /api/datasets/{id}/quality-rul
 ## Dataset restoration
 
 Dataset owners can restore a saved snapshot with `POST /api/datasets/{dataset_id}/versions/{version_number}/restore/` and JSON body `{"confirm": true}`. This operation replaces the dataset's schemas, task set, and annotations with the snapshot state in one database transaction and writes a `dataset.version_restored` audit event. The explicit confirmation is required because tasks created after the snapshot can be deleted. If an annotator or assignee account has been deleted, its historical assignment is skipped during restoration.
+
+
+## Project reporting and signed integrations
+
+`GET /api/projects/{id}/report/` returns the project metrics plus dataset-level workflow counts, enabled quality-rule counts, and saved-version counts.
+
+Trusted external systems can submit task batches to `POST /api/integrations/webhooks/tasks/`. Set `INTEGRATION_WEBHOOK_SECRET` in the backend environment and send `X-Platform-Signature: sha256=<hex>`, where the hex value is the HMAC-SHA256 of the exact raw JSON request body. The body shape is `{"dataset_id": 123, "tasks": [{"external_id": "source-1", "payload": {"text": "example"}}]}`. Requests fail closed when the secret is unset or the signature is invalid. Treat the shared secret as a production credential and rotate it if exposed.

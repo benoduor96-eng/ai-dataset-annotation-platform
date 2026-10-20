@@ -1,10 +1,14 @@
 """REST endpoints for project, dataset, annotation and review workflows."""
+import hashlib
+import hmac
 import json
+import os
 
 from django.db.models import Count
 from django.http import HttpResponse, JsonResponse
 from rest_framework import decorators, response, status, viewsets
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
 
 from apps.annotations.models import Annotation, AnnotationSchema, AnnotationTask, AuditEvent, Review
 from apps.datasets.models import Dataset, DatasetVersion, Project, ProjectMembership, QualityRule
@@ -16,6 +20,7 @@ from .services.analytics import project_summary
 from .services.audit import record_event
 from .services.imports import import_tasks
 from .services.quality_control import build_quality_report
+from .services.reporting import build_project_report
 from .services.configurable_quality import apply_quality_rules
 from .services.validators import PayloadValidationError
 from .services.workflow import WorkflowError, claim_task, review_task, submit_task
@@ -40,6 +45,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
     @decorators.action(detail=True, methods=["get"])
     def metrics(self, request, pk=None):
         return response.Response(project_summary(self.get_object()))
+
+    @decorators.action(detail=True, methods=["get"])
+    def report(self, request, pk=None):
+        """Return a detailed, read-only project operations report."""
+        return response.Response(build_project_report(self.get_object()))
 
     @decorators.action(detail=True, methods=["get", "post"], url_path="members")
     def members(self, request, pk=None):
@@ -311,3 +321,37 @@ def project_export(request, pk):
         content_type="application/json",
         headers={"Content-Disposition": f'attachment; filename="project-{pk}.json"'},
     )
+
+
+@decorators.api_view(["post"])
+@decorators.permission_classes([AllowAny])
+def integration_tasks_webhook(request):
+    """Accept signed task imports from trusted external annotation systems.
+
+    Configure INTEGRATION_WEBHOOK_SECRET in the server environment. Signature
+    format: X-Platform-Signature: sha256=<hex HMAC of the exact raw request body>.
+    """
+    secret = os.getenv("INTEGRATION_WEBHOOK_SECRET", "")
+    if not secret:
+        return response.Response({"detail": "Webhook integration is not configured."}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+    supplied = request.headers.get("X-Platform-Signature", "")
+    expected = "sha256=" + hmac.new(secret.encode("utf-8"), request.body, hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(supplied, expected):
+        return response.Response({"detail": "Invalid webhook signature."}, status=status.HTTP_401_UNAUTHORIZED)
+    try:
+        payload = json.loads(request.body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return response.Response({"detail": "Request body must be valid JSON."}, status=status.HTTP_400_BAD_REQUEST)
+    if not isinstance(payload, dict):
+        return response.Response({"detail": "Request body must be a JSON object."}, status=status.HTTP_400_BAD_REQUEST)
+    dataset_id, tasks = payload.get("dataset_id"), payload.get("tasks")
+    if isinstance(dataset_id, bool) or not isinstance(dataset_id, int) or dataset_id < 1:
+        return response.Response({"dataset_id": "Must be a positive integer."}, status=status.HTTP_400_BAD_REQUEST)
+    dataset = Dataset.objects.filter(pk=dataset_id).select_related("project").first()
+    if dataset is None:
+        return response.Response({"detail": "Dataset not found."}, status=status.HTTP_404_NOT_FOUND)
+    try:
+        created = import_tasks(dataset=dataset, rows=tasks, actor=None)
+    except PayloadValidationError as exc:
+        return response.Response({"tasks": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    return response.Response({"created": len(created), "task_ids": [task.pk for task in created]}, status=status.HTTP_201_CREATED)
