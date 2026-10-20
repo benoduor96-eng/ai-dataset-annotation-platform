@@ -186,7 +186,7 @@ def dataset_import(request, pk):
     if dataset is None:
         return response.Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
     try:
-        created = import_tasks(dataset=dataset, rows=request.data.get("tasks"))
+        created = import_tasks(dataset=dataset, rows=request.data.get("tasks"), actor=request.user)
     except PayloadValidationError as exc:
         raise ValidationError({"tasks": str(exc)}) from exc
     return response.Response(
