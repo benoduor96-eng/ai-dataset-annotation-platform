@@ -16,10 +16,12 @@ acceptance by RustLabs; its reviewers make the final decision.
   `00dec05f68b5c5fa87301816ae97136625974be9` reported **1,541 physical source lines and 1,330
   nonblank source lines across 42 files** under the script's rules. This is still an estimate, not
   an official RustLabs count, and the estimator may not include every suffix RustLabs counts.
-- The readiness branch now adds schema-aware quality checks for classification, named entities,
-  bounding boxes and segmentation, a task-level quality-check API endpoint, and tests for valid and
-  invalid payloads plus tenant isolation. All four CI jobs passed on that commit; later changes must
-  be checked separately.
+- The readiness branch also adds schema-aware quality checks for classification, named entities,
+  bounding boxes and segmentation, plus a task-level quality-check endpoint and tests.
+- A further feature adds project audit events for task claim/submission/review, annotation
+  create/update, and bulk imports; an owner-scoped read-only endpoint; and regression tests for
+  tenant isolation, filtering, and read-only behavior. This feature must pass the latest CI before
+  it is treated as verified. The source inventory should be read from the latest successful run.
 - CI success proves only that configured checks passed; it does not prove production readiness,
   security certification, or acceptance by RustLabs.
 
